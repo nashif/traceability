@@ -4,7 +4,7 @@ project(traceme VERSION 0.1)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+#SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
 
 # We declare a variable to select what to build set
@@ -16,6 +16,7 @@ if(TARGET_GROUP STREQUAL production)
 # If we had any files that ONLY were compiled into our release, for example startup code,
   # it's really handy to put it here.
     add_subdirectory(main)
+    add_subdirectory(docs)
 elseif(TARGET_GROUP STREQUAL test)
 # Our tests need to let CTest know we're running tests
     include(CTest)

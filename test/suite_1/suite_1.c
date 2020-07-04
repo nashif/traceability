@@ -2,6 +2,19 @@
 
 #include <module_a.h>
 
+
+void setUp(void) {
+    // set stuff up here
+}
+
+void tearDown(void) {
+    // clean stuff up here
+}
+
+/**
+ * @brief test midrange values
+ * @validates
+ */
 void test_AverageThreeBytes_should_AverageMidRangeValues(void)
 {
     TEST_ASSERT_EQUAL_HEX8(40, average_three_bytes(30, 40, 50));
@@ -9,6 +22,10 @@ void test_AverageThreeBytes_should_AverageMidRangeValues(void)
     TEST_ASSERT_EQUAL_HEX8(33, average_three_bytes(33, 33, 33));
 }
 
+/**
+ * @brief test high values
+ *
+ */
 void test_AverageThreeBytes_should_AverageHighValues(void)
 {
     TEST_ASSERT_EQUAL_HEX8(80, average_three_bytes(70, 80, 90));
