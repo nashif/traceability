@@ -8,13 +8,4 @@ find_package(Doxygen
              OPTIONAL_COMPONENTS mscgen dia)
 
 add_subdirectory(src)
-add_subdirectory ("docs")
-
-set(DOXYGEN_GENERATE_HTML YES)
-set(DOXYGEN_GENERATE_MAN NO)
-
-doxygen_add_docs(
-    doxygen
-    ${PROJECT_SOURCE_DIR}/src
-    COMMENT "Generate documentation"
-)
+add_subdirectory (docs)
