@@ -12,7 +12,7 @@
 /**
  * @brief say hello
  *
- * @param count
+ * @param count number of times to say hello
  * @return int
  */
 int say_hello(int count);
@@ -20,7 +20,7 @@ int say_hello(int count);
 /**
  * @brief say goodbye
  *
- * @param count
+ * @param count number of times to say goodbye
  * @return int
  */
 int say_goodbye(int count);

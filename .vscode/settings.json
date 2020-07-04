@@ -1,4 +1,5 @@
 {
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-    "checkpatch.run": "manual"
+    "checkpatch.run": "manual",
+    "python.pythonPath": "/usr/local/bin/python"
 }
