@@ -28,8 +28,11 @@ author = 'Anas Nashif'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'breathe',
     'mlx.traceability',
 ]
+
+breathe_default_project = "traceability"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
