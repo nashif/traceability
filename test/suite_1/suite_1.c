@@ -13,7 +13,8 @@ void tearDown(void) {
 
 /**
  * @brief test midrange values
- * @validates
+ *
+ * @verify{@req{001}}
  */
 void test_AverageThreeBytes_should_AverageMidRangeValues(void)
 {
