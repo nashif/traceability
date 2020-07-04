@@ -1,3 +1,4 @@
+
 find_package(Doxygen REQUIRED)
 
 # Find all the public headers
