@@ -11,6 +11,7 @@ int say_hello(int count)
         return 0;
 }
 
+
 int say_goodbye(int count)
 {
         int i;
