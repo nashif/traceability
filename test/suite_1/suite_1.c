@@ -25,7 +25,7 @@ void test_AverageThreeBytes_should_AverageMidRangeValues(void)
 
 /**
  * @brief test high values
- *
+ * @verify{@req{002}}
  */
 void test_AverageThreeBytes_should_AverageHighValues(void)
 {

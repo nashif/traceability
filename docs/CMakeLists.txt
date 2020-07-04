@@ -10,7 +10,7 @@ set(DOXYGEN_INDEX_FILE ${CMAKE_CURRENT_SOURCE_DIR}/html/index.html)
 
 target_include_directories(module_a PUBLIC .)
 
-set(DOXYGEN_INPUT_DIR ${PROJECT_SOURCE_DIR}/module_a)
+set(DOXYGEN_SOURCE_DIR "${PROJECT_SOURCE_DIR}/module_a ${PROJECT_SOURCE_DIR}/test")
 set(DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/doxygen)
 set(DOXYGEN_INDEX_FILE ${DOXYGEN_OUTPUT_DIR}/html/index.html)
 set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
