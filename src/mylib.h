@@ -4,6 +4,12 @@
 #define TRACEME_LIBRARY_H
 
 /**
+ * @brief Say say say
+ * @defgroup saystuff Say Stuff
+ * @{
+ */
+
+/**
  * @brief say hello
  *
  * @param count
@@ -19,4 +25,15 @@ int say_hello(int count);
  */
 int say_goodbye(int count);
 
+/**
+ * @brief say nothing
+ *
+ * @return int
+ */
+int say_nothing(void);
+
+
+/**
+ * @}
+ */
 #endif
