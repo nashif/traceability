@@ -16,7 +16,10 @@ if(TARGET_GROUP STREQUAL production)
 # If we had any files that ONLY were compiled into our release, for example startup code,
   # it's really handy to put it here.
     add_subdirectory(main)
+    add_subdirectory(external)
+    add_subdirectory(test)
     add_subdirectory(docs)
+
 elseif(TARGET_GROUP STREQUAL test)
 # Our tests need to let CTest know we're running tests
     include(CTest)

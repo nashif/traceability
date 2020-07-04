@@ -12,6 +12,19 @@ void tearDown(void) {
 }
 
 /**
+ * @brief All Tests
+ * @defgroup all_tests All Tests
+ *
+ */
+
+/**
+ * @brief average tests
+ * @defgroup tests_average_three_bytes Average Three Bytes
+ * @ingroup all_tests
+ * @{
+ *
+ */
+/**
  * @brief test midrange values
  *
  * @verify{@req{001}}
@@ -43,3 +56,8 @@ int main(void)
 
     return UNITY_END();
 }
+
+/**
+ * @}
+ *
+ */
