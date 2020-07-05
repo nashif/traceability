@@ -162,19 +162,18 @@ class Requirement:
         self.implementations.append(implementation)
 
     def dump(self):
-        print("Name={} ({})".format(self.name, self.refid))
-        print("  Title: {}".format(self.title))
-        print("  Text: {}".format(self.text))
+        print(f"Name={self.name} ({self.refid})")
+        print(f"  Title: {self.title}")
+        print(f"  Text: {self.text}")
+        print(f"  Parent: {self.parent}")
         print("  Tests:")
         for t in self.tests:
-            print("   - {}".format(t.name))
+            print(f"   - {t.name}")
         print("  Implementations:")
         for i in self.implementations:
             print("   - function: {}".format(i.name))
             print("   - file: {}".format(i.file))
             print("   - line: {}".format(i.line))
-
-
         print("\n")
 
 class Requirements:
@@ -217,25 +216,38 @@ class Requirements:
         for r in self.requirements:
             r.dump()
 
+    def get_by_parent(self, parent):
+        ret = []
+        for r in self.requirements:
+            if r.parent == parent:
+                ret.append(r)
+        return ret
 
-    def _add_req(self, req_file, req, parent):
+    def get_by_test(self, testcase):
+        ret = []
+        for r in self.requirements:
+            for t in r.tests:
+                if t.name == testcase:
+                    ret.append(r.name)
+        return ret
+
+    def _add_req(self, req_file, req, level, parent):
         xml_id = req.attrib['id']
         reqid = str(xml_id).replace("Requirements_1", "")
         debug(f"requirement: {reqid}")
         r = self.get_or_create(reqid)
         r.name = reqid
         r.refid = xml_id
-        req_details_list = req_file.xpath("//sect1[@id='{}']".format(r.refid))
+        req_details_list = req_file.xpath(f"//sect{level}[@id='{r.refid}']")
 
         text = None
         if req_details_list:
             req_details = req_details_list[0]
-            r.title = str(req_details.xpath("title")[0])
+            title = str(req_details.xpath("title")[0])
+            r.title = title.replace(f"{reqid}:", "")
             text = req_details.xpath("para")
-
-        if text:
-            r.text = str(text[0])
-
+            if text:
+                r.text = str(text[0])
         r.parent = parent
 
         return reqid
@@ -250,9 +262,9 @@ class Requirements:
         req_list = req_file.xpath("//sect1")
 
         for req in req_list:
-            name = self._add_req(req_file, req, None)
+            name = self._add_req(req_file, req, 1, None)
             for subreq in req.xpath("//sect2"):
-                self._add_req(req_file, subreq, name)
+                self._add_req(req_file, subreq, 2, name)
 
 class TestReport:
 
@@ -405,44 +417,49 @@ class RTM():
 
     def write_srs(self, filename):
         SRS_HEADER = """
-        =====================
-        Software Requirements
-        =====================
+=====================
+Software Requirements
+=====================
 
-        This is the Software Requirements Specification.
+This is the Software Requirements Specification.
 
 
-        Software capabilities
-        =====================
-        """
+Software capabilities
+=====================
+"""
         with open(filename, "w") as req:
             req.write(SRS_HEADER)
-
             for r in self.requirements.requirements:
-                dashes = len(r.title) * "-"
-                req.write(f"\n{r.title}\n{dashes}\n\n")
-                for c in comp:
-                    req.write(f".. item:: {reqid} {name}\n")
-                    req.write("\n")
-                    req.write(f"   {reqtext}\n\n")
+                if not r.parent:
+                    dashes = len(r.title) * "-"
+                    req.write(f"\n{r.title}\n{dashes}\n\n")
+
+                    for c in self.requirements.get_by_parent(r.name):
+                        req.write(f".. item:: {c.name} {c.title}\n")
+                        #req.write("\n")
+                        for t in c.tests:
+                            req.write(f"    :validated_by: {t.name}\n")
+                        req.write(f"\n    {c.text.rstrip()}\n\n")
 
 
-    def write_rst(self, output_dir):
-        for r in self.requirements.requirements:
-            print(f"{r.name} ({r.parent})")
-            """
-            print("Name={} ({})".format(self.name, self.refid))
-            print("  Title: {}".format(self.title))
-            print("  Text: {}".format(self.text))
-            print("  Tests:")
-            for t in self.tests:
-                print("   - {}".format(t.name))
-            print("  Implementations:")
-            for i in self.implementations:
-                print("   - function: {}".format(i.name))
-                print("   - file: {}".format(i.file))
-                print("   - line: {}".format(i.line))
-            """
+
+
+    def write_rst(self, output_dir="docs"):
+
+        out = os.path.join(output_dir, "SRS.rst")
+        self.write_srs(out)
+
+        print(f"Number of testcases: {len(self.suite.testcases)}")
+        test_file = os.path.join(output_dir, "tests.rst")
+        with open(test_file, "w") as fp:
+            section = "Integration Tests"
+            fp.write(f"{section}\n{len(section) * '='}\n\n")
+            for item in self.suite.testcases:
+                fp.write(f".. item:: {item.name} {item.brief}\n")
+                #for v in self.requirements.get_by_test(item.name):
+                #    fp.write(f"    :validates: {v}\n")
+                fp.write("\n")
+
 
     def write_xls(self, output_file):
         book = Workbook()

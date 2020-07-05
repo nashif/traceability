@@ -41,7 +41,7 @@ set(SPHINX_INDEX_FILE ${SPHINX_BUILD}/index.html)
 
 add_custom_command(OUTPUT ${SPHINX_INDEX_FILE}
                    COMMAND
-                   ${SPHINX_EXECUTABLE} -b html
+                   ${SPHINX_EXECUTABLE} -E  -b html
                    # Tell Breathe where to find the Doxygen output
                    -Dbreathe_projects.traceability=${DOXYGEN_OUTPUT_DIR}/xml
                    ${SPHINX_SOURCE} ${SPHINX_BUILD}
