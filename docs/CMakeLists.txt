@@ -33,6 +33,45 @@ add_custom_target(Doxygen ALL DEPENDS ${DOXYGEN_INDEX_FILE})
 set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR})
 set(SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR}/sphinx)
 set(SPHINX_INDEX_FILE ${SPHINX_BUILD}/index.html)
+set(RST_OUT ${SPHINX_BUILD}/rst)
+
+
+set(EXTRACT_CONTENT_COMMAND
+  ${CMAKE_COMMAND} -E env
+  ${PYTHON_EXECUTABLE} scripts/extract_content.py
+  # Ignore any files in the output directory.
+  --ignore ${CMAKE_CURRENT_BINARY_DIR}
+  --project-root ${PROJECT_SOURCE_DIR}
+  # Copy all files in doc to the rst folder.
+  "*:docs:${RST_OUT}"
+  # We want to copy the .rst files in samples/ and boards/ to the rst
+  # folder, and also the doc folder inside rst.
+  #
+  # Some files refer to items in samples/ and boards/ relative to
+  # their actual position in the Zephyr tree. For example, in
+  # subsystems/sensor.rst:
+  #
+  # .. literalinclude:: ../../samples/sensor/mcp9808/src/main.c
+  #
+  VERBATIM # optional
+)
+
+
+set(EXTRACT_CONTENT_COMMAND1
+  ${CMAKE_COMMAND} -E make_directory ${RST_OUT}
+
+  VERBATIM # optional
+)
+
+add_custom_target(
+  content
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${RST_OUT}
+  # Copy all files in doc/ to the rst folder
+  COMMAND ${EXTRACT_CONTENT_COMMAND}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+  COMMENT "Copying files to ${RST_OUT}"
+
+)
 
 # Only regenerate Sphinx when:
 # - Doxygen has rerun
@@ -44,15 +83,20 @@ add_custom_command(OUTPUT ${SPHINX_INDEX_FILE}
                    ${SPHINX_EXECUTABLE} -E  -b html
                    # Tell Breathe where to find the Doxygen output
                    -Dbreathe_projects.traceability=${DOXYGEN_OUTPUT_DIR}/xml
-                   ${SPHINX_SOURCE} ${SPHINX_BUILD}
+                   ${RST_OUT} ${SPHINX_BUILD}
                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                    DEPENDS
                    # Other docs files you want to track should go here (or in some variable)
-                   ${CMAKE_CURRENT_SOURCE_DIR}/index.rst
-                   ${CMAKE_CURRENT_SOURCE_DIR}/SRS.rst
+                   ${RST_OUT}/docs/index.rst
+                   ${RST_OUT}/docs/SRS.rst
+                   ${RST_OUT}/docs/tests.rst
+
                    ${DOXYGEN_INDEX_FILE}
                    MAIN_DEPENDENCY ${SPHINX_SOURCE}/conf.py
                    COMMENT "Generating documentation with Sphinx")
 
 # Nice named target so we can run the job easily
 add_custom_target(Sphinx ALL DEPENDS ${SPHINX_INDEX_FILE})
+
+
+add_dependencies(Sphinx content)
