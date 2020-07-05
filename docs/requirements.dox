@@ -1,23 +1,17 @@
+
 /**
 @page Requirements
 @tableofcontents
-@section Requirements
 
-
-@section Caclulating Averages
-
-@subsection TRCSRS-001 TRCSRS-001: Calculate average of three bytes of mid range numbers
-The system shall provide an interface to calculate the average of three bytes of mid range numbers
+@section TRCSRS-001 TRCSRS-001: Caclulating Averages
 
 @subsection TRCSRS-002 TRCSRS-002: Calculate average of three bytes of high range numbers
+The system shall provide an interface to calculate the average of three bytes of mid range numbers
+
+
+@subsection TRCSRS-003 TRCSRS-003: Calculate average of three bytes of high range numbers
 The system shall provide an interface to calculate the average of three bytes of high range numbers
 
 
-@section Additions
-@subsection TRCSRS-003 TRCSRS-003: Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut malesuada sollicitudin nibh quis vestibulum. Aenean lobortis auctor odio ac iaculis. Duis viverra porttitor dui ac congue.
-
-@subsection TRCSRS-004 TRCSRS-004: Sed aliquam arcu vel nisl elementum, sit amet mollis ipsum pulvinar.
-Sed aliquam arcu vel nisl elementum, sit amet mollis ipsum pulvinar. Etiam aliquam luctus mauris vitae vulputate. Donec viverra elit ante, eget tristique nulla efficitur sit amet. Etiam laoreet aliquet imperdiet. Donec nec diam ipsum.
 
 */

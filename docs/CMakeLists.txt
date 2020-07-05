@@ -41,14 +41,15 @@ set(SPHINX_INDEX_FILE ${SPHINX_BUILD}/index.html)
 
 add_custom_command(OUTPUT ${SPHINX_INDEX_FILE}
                    COMMAND
-                     ${SPHINX_EXECUTABLE} -b html
-                     # Tell Breathe where to find the Doxygen output
-                     -Dbreathe_projects.traceability=${DOXYGEN_OUTPUT_DIR}/xml
+                   ${SPHINX_EXECUTABLE} -b html
+                   # Tell Breathe where to find the Doxygen output
+                   -Dbreathe_projects.traceability=${DOXYGEN_OUTPUT_DIR}/xml
                    ${SPHINX_SOURCE} ${SPHINX_BUILD}
                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                    DEPENDS
                    # Other docs files you want to track should go here (or in some variable)
                    ${CMAKE_CURRENT_SOURCE_DIR}/index.rst
+                   ${CMAKE_CURRENT_SOURCE_DIR}/SRS.rst
                    ${DOXYGEN_INDEX_FILE}
                    MAIN_DEPENDENCY ${SPHINX_SOURCE}/conf.py
                    COMMENT "Generating documentation with Sphinx")

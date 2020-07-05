@@ -27,7 +27,7 @@ void tearDown(void) {
 /**
  * @brief test midrange values
  *
- * @verify{@req{001}}
+ * @verify{@req{002}}
  */
 void test_AverageThreeBytes_should_AverageMidRangeValues(void)
 {
@@ -39,7 +39,7 @@ void test_AverageThreeBytes_should_AverageMidRangeValues(void)
 /**
  * @brief test high values
  *
- * @verify{@req{002}}
+ * @verify{@req{003}}
  */
 void test_AverageThreeBytes_should_AverageHighValues(void)
 {

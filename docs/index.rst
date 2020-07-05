@@ -10,6 +10,7 @@ Welcome to Traceability's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   SRS.rst
 
 
 Indices and tables
