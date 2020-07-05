@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from lxml import etree
-from lxml import objectify
 import argparse
 import os
 import sys
+
+from lxml import etree
+from lxml import objectify
+from lxml.etree import tostring
 
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
@@ -21,6 +23,12 @@ from junitparser import TestCase, TestSuite, JUnitXml, Skipped, Error
 
 
 args = None
+
+DEBUG = True
+
+def debug(str):
+    if DEBUG:
+        print(str)
 
 class TestCase:
     def __init__(self, name, refid=None, anchor=None):
@@ -80,24 +88,31 @@ class TestSuite:
 
         all_tests = objectify.parse("{}/{}".format(args.xmlroot, filename))
         groups = all_tests.xpath("//compounddef/innergroup")
-
+        debug("====== Parsing Tests ========")
         for g in groups:
-            #print("\n=> Parsing {}...\n".format(g))
+
             refid = str(g.xpath('@refid')[0])
+            debug(f"=> Parsing {g} with refid={refid}...")
 
-            identifier = refid.replace("group__", "")
-            identifier = identifier.replace("__tests", "")
-            identifier = identifier.replace("__", ".")
+            if args.add_test_identifiers:
+                identifier = refid.replace("group__", "")
+                identifier = identifier.replace("__tests", "")
+                identifier = identifier.replace("__", ".")
+                debug(f"Identifier: {identifier}")
+            else:
+                identifier = ""
 
-            group_tests = objectify.parse("{}/{}.xml".format(args.xmlroot, str(refid)))
+            group_file = os.path.join(args.xmlroot, str(refid) + ".xml")
+            debug(f"Parsing file {group_file}")
+
+            group_tests = objectify.parse(group_file)
             title = group_tests.xpath("//compounddef/title")[0]
             testcases = group_tests.xpath("//compounddef/sectiondef/memberdef")
-            from lxml.etree import tostring
+
             for case in testcases:
                 refid = case.xpath("@id")[0]
 
-                # Strong FIXME
-                if str(case.name).startswith("test_"):
+                if str(case.name).startswith(args.test_prefix):
                     brief = ""
                     brief_el = case.xpath("briefdescription/para")
                     if brief_el:
@@ -110,13 +125,17 @@ class TestSuite:
                             if b.tail:
                                 brief = brief + b.tail
 
-                    #print(brief)
-                    n = str(case.name).replace("test_", identifier + ".")
+                    if args.add_test_identifiers:
+                        n = str(case.name).replace("test_", identifier + ".")
+                    else:
+                        n = str(case.name)
+
                     tc = TestCase(n, refid=str(refid))
                     tc.group = str(title)
                     tc.brief = brief
                     self.add(tc)
 
+        debug("====== Done Parsing Tests ========")
 class Implementation:
     def __init__(self, name, refid=None, anchor=None, file=None, line=0):
         self.name = name
@@ -201,6 +220,9 @@ class Requirements:
     def parse(self, filename="Requirements.xml"):
 
         file_path = os.path.join(args.xmlroot, filename)
+        if not os.path.exists(file_path):
+            sys.exit(f"{file_path} does not exist...")
+
         req_file = objectify.parse(file_path)
         req_list = req_file.xpath("//sect2/@id")
 
@@ -249,6 +271,7 @@ class RTM():
         self.requirements = None
         self.suite = None
 
+        self.groups = dict()
 
     def find_file(self, group_dict, struct_dict, refid):
         for k, refs in group_dict.items():
@@ -258,29 +281,41 @@ class RTM():
             if refid in refs:
                 return k
 
+    def parse_index(self):
+        index_file = os.path.join(self.xml_root, "index.xml")
+        index = objectify.parse(index_file)
+        groups = index.xpath('//compound[@kind="group"]')
+        for group in groups:
+            refid= group.attrib['refid']
+            name = group.name
+            self.groups[refid] = name
+
+
     def parse_xml(self):
+        self.parse_index()
+
         try:
-            verify_list = objectify.parse("{}/verify.xml".format(self.xml_root))
+            verify_file = os.path.join(self.xml_root, "verify.xml")
+            verify_list = objectify.parse(verify_file)
             varlist = verify_list.xpath("//variablelist/node()")
 
             for ve in varlist:
                 refs = ve.xpath("term/ref")
                 for ref in refs:
-                    refid_raw = str(ref.xpath("@refid")[0])
-                    rr = refid_raw.split("_")
-                    rr.pop(len(rr)-1)
-                    l = rr[-1]
-                    rr[-1] = "1%s" %l
-                    refid="_".join(rr)
-                    #print(refid)
 
-                    check = self.suite.get_by_id(refid)
-                    if check:
-                        #print("found")
-                        tc = check
+                    refid = str(ref.xpath("@refid")[0])
+                    debug(f"Working on {ref} ({refid})...")
+
+                    debug(f"Check if we have {refid} already...")
+                    found = self.suite.get_by_id(refid)
+                    if found:
+                        debug("found")
+                        tc = found
                     else:
                         tc = self.suite.get_or_create(str(ref))
                         tc.refid = refid
+
+                    debug(tc)
 
                 reqs = ve.xpath("para/ref")
                 for req in reqs:
@@ -434,7 +469,8 @@ class RTM():
             # Get all requirements for a test
             for r in self.requirements.requirement(t.name):
                 if r not in req_cols:
-                    cell = sheet1.cell(1, len(req_cols) + 2,'=HYPERLINK("#Requirements!{}","{}")'.format(links[r], r))
+                    debug(f"{1}x{len(req_cols) + 2}")
+                    cell = sheet1.cell(1, len(req_cols) + 3,'=HYPERLINK("#Requirements!{}","{}")'.format(links[r], r))
                     header_alignment1 = Alignment(horizontal='center', vertical='top', textRotation=90, shrinkToFit=True)
                     cell.font = Font(bold=True)
                     cell.alignment = header_alignment1
@@ -451,7 +487,8 @@ class RTM():
 
         for r in self.requirements.requirements:
             if r.name not in req_cols:
-                cell = sheet1.cell(1, len(req_cols) + 2,'=HYPERLINK("#Requirements!{}","{}")'.format(links[r.name], r.name))
+                debug(f"{1}x{len(req_cols) + 2}")
+                cell = sheet1.cell(1, len(req_cols) + 3,'=HYPERLINK("#Requirements!{}","{}")'.format(links[r.name], r.name))
                 header_alignment = Alignment(horizontal='center', vertical='top', textRotation=90, shrinkToFit=True)
                 cell.alignment = header_alignment
                 cell.font = Font(bold=True)
@@ -597,6 +634,12 @@ def parse_args():
     parser.add_argument('-g', '--group',
             help="filter by group")
 
+    parser.add_argument('-p', '--test-prefix', default="test_",
+            help="Testcase prefix to identify testcases")
+
+    parser.add_argument('-i', '--add-test-identifiers', action="store_true",
+            help="Add additional identifiers based on test groups")
+
     parser.add_argument('-d', '--dump', action="store_true",
     help="Dump requirements and dependencies")
 
@@ -626,7 +669,6 @@ def main():
 
     rtm.requirements = Requirements()
     rtm.requirements.parse()
-
 
     rtm.parse_xml()
 
