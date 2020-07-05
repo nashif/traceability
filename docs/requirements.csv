@@ -1,0 +1,4 @@
+DNGid,uid,level,text,ref,links,active,derived,header,normative,reviewed,group
+111111,TRCSRS-001,1,Caclulating Averages,,,TRUE,,,FALSE,TRUE,Caclulating Averages
+111112,TRCSRS-002,1.1,"The system shall provide an interface to calculate the average of three bytes of mid range numbers",,,TRUE,,"Calculate average of three bytes of mid range numbers",TRUE,TRUE,Caclulating Averages
+111113,TRCSRS-003,1.1,"The system shall provide an interface to calculate the average of three bytes of high range numbers",,,TRUE,,"Calculate average of three bytes of high range numbers",TRUE,TRUE,Caclulating Averages
