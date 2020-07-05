@@ -2,11 +2,20 @@
 
 from lxml import etree
 from lxml import objectify
-import xlwt
-import xlrd
 import argparse
 import os
 import sys
+
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
+from openpyxl.utils import get_column_letter
+from openpyxl.chart import (
+    PieChart,
+    ProjectedPieChart,
+    Reference
+)
+from openpyxl.chart.series import DataPoint
+from openpyxl.chart import BarChart, Series, Reference, BarChart3D
 
 from junitparser import TestCase, TestSuite, JUnitXml, Skipped, Error
 
@@ -109,10 +118,12 @@ class TestSuite:
                     self.add(tc)
 
 class Implementation:
-    def __init__(self, name, refid=None, anchor=None):
+    def __init__(self, name, refid=None, anchor=None, file=None, line=0):
         self.name = name
         self.refid = refid
         self.anchor = anchor
+        self.file=file
+        self.line=line
 
 class Requirement:
     def __init__(self, name, refid=None, anchor=None):
@@ -130,7 +141,6 @@ class Requirement:
     def add_implementation(self, implementation):
         self.implementations.append(implementation)
 
-
     def dump(self):
         print("Name={} ({})".format(self.name, self.refid))
         print("  Title: {}".format(self.title))
@@ -140,7 +150,10 @@ class Requirement:
             print("   - {}".format(t.name))
         print("  Implementations:")
         for i in self.implementations:
-            print("   - {}".format(i.name))
+            print("   - function: {}".format(i.name))
+            print("   - file: {}".format(i.file))
+            print("   - line: {}".format(i.line))
+
 
         print("\n")
 
@@ -187,7 +200,8 @@ class Requirements:
 
     def parse(self, filename="Requirements.xml"):
 
-        req_file = objectify.parse("{}/{}".format(args.xmlroot, filename))
+        file_path = os.path.join(args.xmlroot, filename)
+        req_file = objectify.parse(file_path)
         req_list = req_file.xpath("//sect2/@id")
 
         for req in req_list:
@@ -207,10 +221,19 @@ class TestReport:
         super().__init__(*args, **kwargs)
 
         self.testcases = []
+        self.passed = 0
+        self.failed = 0
+        self.errors = 0
+        self.skipped = 0
 
     def parse(self, file):
         junit_xml = JUnitXml.fromfile(file)
         for suite in junit_xml:
+            self.passed += suite.tests - suite.errors - suite.failures - suite.skipped
+            self.failed += suite.failures
+            self.skipped += suite.skipped
+            self.errors += suite.errors
+
             for testcase in suite:
                 self.testcases.append(testcase)
 
@@ -227,7 +250,6 @@ class RTM():
         self.suite = None
 
 
-
     def find_file(self, group_dict, struct_dict, refid):
         for k, refs in group_dict.items():
             if refid in refs:
@@ -237,170 +259,329 @@ class RTM():
                 return k
 
     def parse_xml(self):
-        verify_list = objectify.parse("{}/verify.xml".format(self.xml_root))
-        varlist = verify_list.xpath("//variablelist/node()")
+        try:
+            verify_list = objectify.parse("{}/verify.xml".format(self.xml_root))
+            varlist = verify_list.xpath("//variablelist/node()")
 
-        for ve in varlist:
-            refs = ve.xpath("term/ref")
-            for ref in refs:
-                refid_raw = str(ref.xpath("@refid")[0])
-                rr = refid_raw.split("_")
-                rr.pop(len(rr)-1)
-                l = rr[-1]
-                rr[-1] = "1%s" %l
-                refid="_".join(rr)
-                #print(refid)
+            for ve in varlist:
+                refs = ve.xpath("term/ref")
+                for ref in refs:
+                    refid_raw = str(ref.xpath("@refid")[0])
+                    rr = refid_raw.split("_")
+                    rr.pop(len(rr)-1)
+                    l = rr[-1]
+                    rr[-1] = "1%s" %l
+                    refid="_".join(rr)
+                    #print(refid)
 
-                check = self.suite.get_by_id(refid)
-                if check:
-                    #print("found")
-                    tc = check
-                else:
-                    tc = self.suite.get_or_create(str(ref))
-                    tc.refid = refid
+                    check = self.suite.get_by_id(refid)
+                    if check:
+                        #print("found")
+                        tc = check
+                    else:
+                        tc = self.suite.get_or_create(str(ref))
+                        tc.refid = refid
 
-            reqs = ve.xpath("para/ref")
-            for req in reqs:
-                r = self.requirements.get_or_create(str(req))
-                r.add_test(tc)
+                reqs = ve.xpath("para/ref")
+                for req in reqs:
+                    r = self.requirements.get_or_create(str(req))
+                    r.add_test(tc)
+        except OSError as e:
+            print(str(e))
+            sys.exit(2)
 
-        satisfy_list = objectify.parse("{}/satisfy.xml".format(self.xml_root))
-        varlist = satisfy_list.xpath("//variablelist/node()")
-        for ve in varlist:
-            refs = ve.xpath("term/ref")
-            for ref in refs:
-                impl = Implementation(
-                    name=str(ref),
-                    refid=str(ref.xpath("@refid")[0])
-                )
-            listitems = ve.xpath("para/ref")
-            for item in listitems:
-                requirement = str(item)
-                r = self.requirements.get_or_create(requirement)
-                r.add_implementation(impl)
+        if False:
+            try:
+                satisfy_list = objectify.parse("{}/satisfy.xml".format(self.xml_root))
+                varlist = satisfy_list.xpath("//variablelist/node()")
+                for ve in varlist:
+                    refs = ve.xpath("term/ref")
+                    for ref in refs:
+                        refid = str(ref.xpath("@refid")[0])
+                        print(refid)
+                        group = refid.split("_ga", 1)[0]
+                        print(group)
+                        xmlid = refid.split("_1ga", 1)[-1]
+                        group_file = refid.split("_1ga", 1)[0]
+                        func_id = "{}_1ga{}".format(group, xmlid)
+                        if os.path.exists(os.path.join(self.xml_root, f"{group_file}.xml")):
+                            xmlfile = "{}.xml".format(group_file)
+                        else:
+                            xmlfile = "{}.xml".format(group)
+                        impl = objectify.parse(os.path.join(self.xml_root, xmlfile))
+                        file = impl.xpath("//*[@id='{}']//location/@file".format(func_id))[0]
+                        line = impl.xpath("//*[@id='{}']//location/@line".format(func_id))[0]
+                        impl = Implementation(
+                            name=str(ref),
+                            refid=refid,
+                            file=file,
+                            line=line
+                        )
+
+                    listitems = ve.xpath("para/ref")
+                    for item in listitems:
+                        requirement = str(item)
+                        r = self.requirements.get_or_create(requirement)
+                        r.add_implementation(impl)
+
+            except OSError as e:
+                print(str(e))
+                sys.exit(2)
+
+    @staticmethod
+    def adjust_width(worksheet):
+        wrap = False
+        for col in worksheet.columns:
+            max_length = 0
+            column = col[0].column # Get the column name
+            for cell in col:
+                if cell.alignment.wrapText:
+                    wrap = True
+                if cell.coordinate in worksheet.merged_cells: # not check merge_cells
+                    continue
+                try: # Necessary to avoid error on empty cells
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(cell.value)
+                except:
+                    pass
+            if wrap:
+                wrap = False
+                continue
+            adjusted_width = (max_length + 2) * 1.2
+            worksheet.column_dimensions[get_column_letter(column)].width = adjusted_width
 
 
     def write_xls(self):
 
-        book = xlwt.Workbook(encoding="utf-8")
-        sheet1 = book.add_sheet("RTM")
-        testplan_sheet = book.add_sheet("Tests")
-        sheet3 = book.add_sheet("Requirements")
-        sheet1.row(0).height_mismatch = True
-        sheet1.row(0).height = 256*4
+        book = Workbook()
+        sheet1 = book.active
+        sheet1.title = "RTM"
+        testplan_sheet = book.create_sheet("Tests")
+        sheet3 = book.create_sheet("Requirements")
 
+
+        #sheet1.row(0).height_mismatch = True
+        sheet1.row_dimensions[1].height = 70
 
         # Write Testplan
 
-        testplan_sheet.write(0, 0, "ID", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        testplan_sheet.col(0).width = 2962 * 4
-        testplan_sheet.write(0, 1, "Brief", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        testplan_sheet.col(1).width = 2962 * 4
-        testplan_sheet.write(0, 2, "Details", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        testplan_sheet.col(2).width = 16000
+        testplan_sheet.column_dimensions['A'].width = 50
+        testplan_sheet.column_dimensions['B'].width = 50
+        testplan_sheet.column_dimensions['C'].width = 50
 
-        row = 1
+        cell = testplan_sheet.cell(1, 1, "ID")
+        cell.font = Font(bold=True)
+        header_alignment = Alignment(horizontal='center', vertical='top')
+
+
+        cell = testplan_sheet.cell(1, 2, "Brief")
+        cell.alignment = header_alignment
+        cell.font = Font(bold=True)
+
+        cell = testplan_sheet.cell(1, 3, "Details")
+        cell.alignment = header_alignment
+        cell.font = Font(bold=True)
+
+        row = 2
         test_links = {}
         for tc in self.suite.testcases:
-            testplan_sheet.write(row, 0, tc.name)
+            testplan_sheet.cell(row, 1, tc.name)
             if tc.brief != "":
-                #print("dddd {}".format(tc.brief))
-                testplan_sheet.write(row, 1, tc.brief)
-            #testplan_sheet.write(row, 2, r.text, xlwt.easyxf('alignment: wrap True'))
-            test_links[tc.name] = 'A{}'.format(row + 1)
+                testplan_sheet.cell(row, 2, tc.brief)
+            test_links[tc.name] = 'A{}'.format(row)
             row = row + 1
+
 
         # Write Requirements sheet
+        sheet3.column_dimensions['A'].width = 50
+        sheet3.column_dimensions['B'].width = 50
+        sheet3.column_dimensions['C'].width = 200
 
-        sheet3.write(0, 0, "ID", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        sheet3.write(0, 1, "Title", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        sheet3.col(1).width = 2962 * 4
-        sheet3.write(0, 2, "text", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        sheet3.col(2).width = 16000
+        wrap = Alignment(vertical='top', wrap_text=True)
+        cell = sheet3.cell(1, 1, "ID")
+        cell.alignment = header_alignment
+        cell.font = Font(bold=True)
 
-        row = 1
-        links = {}
-        for r in self.requirements.requirements:
-            sheet3.write(row, 0, r.name)
-            sheet3.write(row, 1, r.title)
-            sheet3.write(row, 2, r.text, xlwt.easyxf('alignment: wrap True'))
-            links[r.name] = 'A{}'.format(row + 1)
-            row = row + 1
+        cell = sheet3.cell(1, 2, "Title")
+        cell.alignment = header_alignment
+        cell.font = Font(bold=True)
+
+        cell = sheet3.cell(1, 3, "text")
+        cell.alignment = header_alignment
+        cell.font = Font(bold=True)
 
 
         row = 2
+        links = {}
+        for r in self.requirements.requirements:
+            sheet3.cell(row, 1, r.name)
+            sheet3.cell(row, 2, r.title)
+            cell = sheet3.cell(row, 3, r.text)
+            cell.alignment = wrap
+            links[r.name] = 'A{}'.format(row)
+            row = row + 1
+
+        row = 3
         req_cols = {}
         # Now go through all tests
         for t in self.suite.testcases:
-            sheet1.write(row, 0,
-                xlwt.Formula('HYPERLINK("#Tests!{}","{}")'.format(test_links[t.name], t.name)))
+            cell = sheet1.cell(row, 1, '=HYPERLINK("#Tests!{}","{}")'.format(test_links[t.name], t.name))
+            #cell.font = Font(bold=True)
+            #header_alignment = Alignment(horizontal='center', vertical='top')
+            #cell.alignment = header_alignment
+
+            sheet1.column_dimensions['A'].width = 50
             # Get all requirements for a test
             for r in self.requirements.requirement(t.name):
                 if r not in req_cols:
-                    sheet1.write(0, len(req_cols) + 2,
-                        xlwt.Formula('HYPERLINK("#Requirements!{}","{}")'.format(links[r], r)),
-                        xlwt.easyxf("align: rotation 90"))
+                    cell = sheet1.cell(1, len(req_cols) + 2,'=HYPERLINK("#Requirements!{}","{}")'.format(links[r], r))
+                    header_alignment1 = Alignment(horizontal='center', vertical='top', textRotation=90, shrinkToFit=True)
+                    cell.font = Font(bold=True)
+                    cell.alignment = header_alignment1
 
-                    sheet1.col(len(req_cols) + 2).width = 256 * 4
-                    req_cols[r] = len(req_cols) + 2
+                    col = get_column_letter(cell.column)
+                    sheet1.column_dimensions[col].width = 3
 
-                sheet1.write(row, req_cols[r], "X", xlwt.easyxf("align: horz center"))
+                    #sheet1.col(len(req_cols) + 2).width = 256 * 4
+                    req_cols[r] = len(req_cols) + 3
+
+                sheet1.cell(row, req_cols[r], "X")
 
             row += 1
 
         for r in self.requirements.requirements:
             if r.name not in req_cols:
-                sheet1.write(0, len(req_cols) + 2,
-                    xlwt.Formula('HYPERLINK("#Requirements!{}","{}")'.format(links[r.name], r.name)),
-                    xlwt.easyxf("align: rotation 90"))
-                sheet1.col(len(req_cols) + 2).width = 256 * 4
+                cell = sheet1.cell(1, len(req_cols) + 2,'=HYPERLINK("#Requirements!{}","{}")'.format(links[r.name], r.name))
+                header_alignment = Alignment(horizontal='center', vertical='top', textRotation=90, shrinkToFit=True)
+                cell.alignment = header_alignment
+                cell.font = Font(bold=True)
+
+                col = get_column_letter(cell.column)
+                sheet1.column_dimensions[col].width = 3
 
                 req_cols[r.name] = len(req_cols) + 2
 
+        sheet1.cell(1, 1, "Requirements")
+        sheet1.cell(2, 1, "Test Cases")
+        sheet1.cell(1, 2, "Reqs Tested")
 
-        sheet1.col(0).width = 256 * 60
-        sheet1.write(0, 0, "Requirements", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        sheet1.write(1, 0, "Test Cases", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-        sheet1.write(0, 1, "Reqs Tested", xlwt.easyxf("align: vert top; align: horz center; align: wrap 1; font: bold 1"))
-        sheet1.col(1).width = 256 * 8
-
-        row1 = 2
+        row1 = 3
         tests = self.suite.testcases
         for t in tests:
-            if 1:
-                cell= "COUNTA({}{}:{}{})".format(xlrd.colname(2), row1 + 1, xlrd.colname(1 + len(self.requirements.requirements)), row1 + 1)
-                sheet1.write(row1, 1, xlwt.Formula(cell), xlwt.easyxf("align: horz center"))
-
+            cell= "=COUNTA({}{}:{}{})".format(get_column_letter(3), row1, get_column_letter(1 + len(self.requirements.requirements)), row1 )
+            sheet1.cell(row1, 2, cell)
             row1 = row1 + 1
 
-        sheet1.write(1, 1, xlwt.Formula("SUM(B3:B{})".format(3+len(tests))), xlwt.easyxf("align: horz center"))
+        sheet1.cell(2, 2, "=SUM(B3:B{})".format(3+len(tests)))
 
-        col = 2
+        col = 3
         for t in self.requirements.requirements:
-            sheet1.write(1, col, xlwt.Formula("COUNTA({}3:{}{})".format(xlrd.colname(col),
-                xlrd.colname(col), 3 + len(tests))),
-                xlwt.easyxf("align: horz center"))
+            sheet1.cell(2, col, "=COUNTA({}3:{}{})".format(get_column_letter(col), get_column_letter(col), 3 + len(tests)))
             col = col + 1
 
+        # Report
         results = {}
-        if self.report_file:
-            test_report = book.add_sheet("Test Report")
-            test_report.write(0, 0, "Testcase", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-            test_report.write(0, 1, "Class", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
-            test_report.write(0, 2, "Results", xlwt.easyxf("align: vert top; align: horz center; font: bold 1"))
+        if self.report_file and os.path.exists(self.report_file):
+            test_report = book.create_sheet("Test Report")
+            cell = test_report.cell(11, 1, "Testcase")
+            test_report.column_dimensions['A'].width = 60
+
+            cell.font = Font(bold=True)
+            header_alignment = Alignment(horizontal='center', vertical='top')
+            cell.alignment = header_alignment
+
+
             r = TestReport()
             r.parse(self.report_file)
-            row = 1
-            for t in r.testcases:
-                test_report.write(row, 0, t.name)
-                test_report.write(row, 1, t.classname)
-                if t.result:
-                    test_report.write(row, 2, t.result.type)
-                else:
-                    test_report.write(row, 2, "pass")
 
-                results[t.name] = 'A{}'.format(row + 1)
+            tidx = 2
+            targets = []
+            tt = {}
+            for t in r.testcases:
+                target, test = t.classname.split(":")
+                res = "pass"
+                if t.result:
+                    res = t.result.type
+                if not tt.get(t.name, None):
+                    tt[t.name] = {target: res}
+                else:
+                    tt[t.name][target] = res
+
+                # Targets (Header)
+                if target not in targets:
+                    for c in [1,11]:
+                        cell = test_report.cell(c, tidx, target)
+                        cell.font = Font(bold=True)
+                        cell.alignment = Alignment(horizontal='center', vertical='top', textRotation=90, shrinkToFit=True)
+                    targets.append(target)
+                    test_report.column_dimensions[get_column_letter(tidx)].width = 8
+                    tidx += 1
+
+            summary = ["Pass", "Fail", "Skipped", "Error", "Total", "Pass Rate", "Execution Rate"]
+
+            row = 2
+            for item in summary:
+                cell = test_report.cell(row, 1, item)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='right', vertical='top')
+                row += 1
+
+            row = 12
+            for t in tt.keys():
+                test_report.cell(row, 1, t)
+                for target in tt[t].keys():
+                    test_report.cell(row, targets.index(target) + 2, tt[t][target])
+
+                results[t] = 'A{}'.format(row + 1)
                 row = row + 1
+
+
+            row = 2
+            summary = ["pass", "failure", "skipped", "error", "total", "passrate", "execution"]
+            for item in summary:
+                col = 2
+                for t in targets:
+                    style = 'Neutral'
+                    if item == "total":
+                        formula = '=SUM({col}$2:{col}$5)'.format(col=get_column_letter(col))
+                        style = "Total"
+                    elif item == "passrate":
+                        formula = '={col}2/({col}6-{col}4)'.format(col=get_column_letter(col))
+                        style = "Percent"
+                    elif item == "execution":
+                        formula = "=({col}2+{col}3+{col}5)/{col}6".format(col=get_column_letter(col))
+                        style = "Percent"
+                    elif item == "skipped":
+                        formula = '=COUNTIF({}$12:{}${},"{}") + COUNTBLANK({}$12:{}${})'.format(get_column_letter(col),get_column_letter(col), len(tt), item, get_column_letter(col), get_column_letter(col), len(tt))
+                    else:
+                        formula = '=COUNTIF({}$12:{}${},"{}")'.format(get_column_letter(col),get_column_letter(col), len(tt), item)
+
+                    cell = test_report.cell(row, col, formula)
+                    cell.style = style
+                    col += 1
+                row += 1
+
+
+            chart1 = BarChart3D()
+            chart1.style = 11
+            chart1.grouping = "percentStacked"
+            chart1.overlap = 100
+            chart1.title = 'Platforms'
+
+            data = Reference(test_report, min_col=1, min_row=2, max_row=5, max_col=len(targets) + 1)
+            cats = Reference(test_report, min_col=2, min_row=1, max_col=len(targets) + 1)
+
+            chart1.add_data(data, from_rows=True, titles_from_data=True, )
+            chart1.set_categories(cats)
+            chart1.width = 25
+            chart1.height = 15
+
+
+            #chart1.shape = 4
+            test_report.add_chart(chart1, "{}10".format(get_column_letter(len(targets) + 5)))
+
+        self.adjust_width(testplan_sheet)
+        self.adjust_width(sheet3)
 
         book.save(self.xls_file)
 
@@ -411,7 +592,7 @@ def parse_args():
                 description="Generate Requirement Traceability Matrix (RTM).")
     parser.add_argument('-x', '--xmlroot', default=None,
             help="Root directory of XML files generated by doxygen.")
-    parser.add_argument('-r', '--rtm-file', default="rtm.xls",
+    parser.add_argument('-r', '--rtm-file', default="rtm.xlsx",
             help="RTM file in Excel format")
     parser.add_argument('-g', '--group',
             help="filter by group")
@@ -430,6 +611,10 @@ def main():
         sys.exit(1)
     if not args.rtm_file:
         sys.exit(1)
+
+
+    if args.junit_file and not os.path.exists(args.junit_file):
+        sys.exit("File {} does not exist.".format(args.junit_file))
 
     rtm = RTM(xml_root=args.xmlroot, xls_file=args.rtm_file, report_file=args.junit_file)
 
