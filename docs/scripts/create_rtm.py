@@ -4,9 +4,8 @@ import argparse
 import os
 import sys
 
-from lxml import etree
 from lxml import objectify
-from lxml.etree import tostring
+
 
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
