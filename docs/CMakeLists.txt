@@ -56,11 +56,37 @@ set(EXTRACT_CONTENT_COMMAND
   VERBATIM # optional
 )
 
+set(ADD_REQ_COMMAND
+  ${CMAKE_COMMAND} -E env
+  ${PYTHON_EXECUTABLE} scripts/create_req.py
+  --csv-file requirements.csv
+  --dox-file requirements.dox
+  VERBATIM # optional
+)
 
-set(EXTRACT_CONTENT_COMMAND1
-  ${CMAKE_COMMAND} -E make_directory ${RST_OUT}
+set(ADD_TRC_COMMAND
+  ${CMAKE_COMMAND} -E env
+  ${PYTHON_EXECUTABLE} scripts/create_rtm.py
+  --xmlroot ${DOXYGEN_OUTPUT_DIR}/xml/
+  --generate-rst
+  --output-dir ${RST_OUT}/docs
 
   VERBATIM # optional
+)
+
+add_custom_target(
+    requirements
+    COMMAND ${ADD_REQ_COMMAND}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    COMMENT "Create requirements file in Doxygen format..."
+)
+
+add_custom_target(
+  traceability
+  COMMAND ${ADD_TRC_COMMAND}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+  COMMENT "Generating traceability files in ${RST_OUT}"
+
 )
 
 add_custom_target(
@@ -83,7 +109,7 @@ add_custom_command(OUTPUT ${SPHINX_INDEX_FILE}
                    ${SPHINX_EXECUTABLE} -E  -b html
                    # Tell Breathe where to find the Doxygen output
                    -Dbreathe_projects.traceability=${DOXYGEN_OUTPUT_DIR}/xml
-                   ${RST_OUT} ${SPHINX_BUILD}
+                   ${RST_OUT}/docs ${SPHINX_BUILD}
                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                    DEPENDS
                    # Other docs files you want to track should go here (or in some variable)
@@ -98,5 +124,6 @@ add_custom_command(OUTPUT ${SPHINX_INDEX_FILE}
 # Nice named target so we can run the job easily
 add_custom_target(Sphinx ALL DEPENDS ${SPHINX_INDEX_FILE})
 
-
-add_dependencies(Sphinx content)
+add_dependencies(traceability Doxygen content)
+add_dependencies(Sphinx content traceability)
+add_dependencies(Doxygen requirements)
