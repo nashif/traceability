@@ -60,7 +60,7 @@ set(ADD_REQ_COMMAND
   ${CMAKE_COMMAND} -E env
   ${PYTHON_EXECUTABLE} scripts/create_req.py
   --csv-file requirements.csv
-  --dox-file requirements.dox
+  --dox-file ${DOXYGEN_OUTPUT_DIR}/requirements.dox
   VERBATIM # optional
 )
 
@@ -76,6 +76,7 @@ set(ADD_TRC_COMMAND
 
 add_custom_target(
     requirements
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${DOXYGEN_OUTPUT_DIR}
     COMMAND ${ADD_REQ_COMMAND}
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     COMMENT "Create requirements file in Doxygen format..."

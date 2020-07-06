@@ -58,8 +58,7 @@ import os
 import mlx.traceability
 
 html_static_path = [
-    os.path.join(os.path.dirname(mlx.traceability.__file__), 'assets'),
-    '_static'
+    os.path.join(os.path.dirname(mlx.traceability.__file__), 'assets')
     ]
 
 traceability_relationships = {
